@@ -1,0 +1,24 @@
+.runTransformations
+.#-----------------------------------------------------
+.input|xdom+xml/current
+.#-----------------------------------------------------
+<document>
+  <p>
+    <metadata>
+      <metadata>
+        <entry>
+          <string>source</string>
+          <string>αa</string>
+        </entry>
+      </metadata>
+    </metadata>
+  </p>
+  <macro content="print(&quot;&lt;document/&gt;&quot;)" id="python3"/>
+</document>
+.#-----------------------------------------------------
+.expect|event/1.0
+.#-----------------------------------------------------
+beginDocument [[source]=[(((945)))a]]
+beginMacroMarkerStandalone [python3] [] [print("<document/>")]
+endMacroMarkerStandalone [python3] [] [print("<document/>")]
+endDocument [[source]=[(((945)))a]]

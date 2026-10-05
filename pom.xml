@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.xwiki.contrib</groupId>
+    <artifactId>parent-platform</artifactId>
+    <version>17.10.0-3</version>
+  </parent>
+
+  <groupId>org.xwiki.contrib.python</groupId>
+  <artifactId>python</artifactId>
+  <name>Python support</name>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <description>Various tools to manipulate Python script and packages.</description>
+
+  <properties>
+    <xwiki.release.jira.skip>false</xwiki.release.jira.skip>
+    <xwiki.issueManagement.jira.id>PYTHON</xwiki.issueManagement.jira.id>
+
+    <polyglot.version>25.4.4.1.1</polyglot.version>
+    <!-- GraalPy 5.3+ =only works on Java 21+ -->
+    <xwiki.java.version>21</xwiki.java.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.graalvm.polyglot</groupId>
+        <artifactId>polyglot</artifactId>
+        <version>${polyglot.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.graalvm.polyglot</groupId>
+        <artifactId>python</artifactId>
+        <version>${polyglot.version}</version>
+        <type>pom</type>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <modules>
+    <module>python3-api</module>
+    <module>python3-macro</module>
+  </modules>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <!-- Same as the parent POM, with Mockito explicitly set as an agent, because Java 21+ doesn't allow a
+                 library to attach itself anymore. Without this Mockito prints a warning on the console, which makes
+                 the tests fail (no console output is allowed).
+                 See https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3 -->
+            <argLine>@{argLine} -Xmx1024m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${project.build.directory} --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED -javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"</argLine>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.revapi</groupId>
+        <artifactId>revapi-maven-plugin</artifactId>
+        <configuration>
+          <analysisConfiguration combine.children="append">
+            <!-- Add ignores here using the following syntax. You can use a single <revapi.differences> entry but it
+                 cannot be empty. You can also use different <revapi.differences> entries if you wish to use a common
+                 justification for example (see example below).
+
+                 By default criticality is set to "error" if not specified.
+                 See https://revapi.org/revapi/configuration.html#_criticality for more.
+
+                 Note: you can use regexes by using the syntax: <regex>true</regex>
+                 Don't forget to '\'-escape dots and other special characters in this case ;)
+
+                 Common justification example:
+
+            <revapi.differences>
+              <justification>This change is necessary to fix bug #1234</justification>
+              <criticality>highlight</criticality>
+              <differences>
+                <item>
+                  <code>java.method.addToInterface</code>
+                  <new>method void com.acme.ToolInterface::setup()</new>
+                </item>
+                <item>
+                  <code>java.method.removed</code>
+                  <old>method void com.acme.ToolInterface::initialize()</old>
+                  <justification>...</justification>
+                </item>
+              </differences>
+            </revapi.differences>
+
+                 Single justification example:
+
+            <revapi.differences>
+              <differences>
+                <item>
+                  <code>java.method.removed</code>
+                  <old>method void org.xwiki.diff.xml.XMLDiff::xxx()</old>
+                  <justification>Unstable API added by mistake.</justification>
+                  <criticality>highlight</criticality>
+                </item>
+              </differences>
+            </revapi.differences>
+            -->
+          </analysisConfiguration>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <developers>
+    <developer>
+      <id>tmortagne</id>
+      <name>Thomas Mortagne</name>
+      <email>thomas.mortagne at xwiki.com</email>
+      <timezone>+1</timezone>
+    </developer>
+    <developer>
+      <id>pjeanjean</id>
+      <name>Pierre Jeanjean</name>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:git://github.com/xwiki-contrib/python.git</connection>
+    <developerConnection>scm:git:git@github.com:xwiki-contrib/python.git</developerConnection>
+    <url>https://github.com/xwiki-contrib/python/tree/master</url>
+    <tag>HEAD</tag>
+  </scm>
+</project>

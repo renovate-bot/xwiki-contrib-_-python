@@ -1,0 +1,17 @@
+.runTransformations
+.#-----------------------------------------------------
+.input|xwiki/2.0
+.# Verify python macro does not fail with null content
+.#-----------------------------------------------------
+{{python3/}}{{python3}}{{/python3}}
+.#-----------------------------------------------------
+.expect|event/1.0
+.#-----------------------------------------------------
+beginDocument
+beginParagraph
+beginMacroMarkerInline [python3] []
+endMacroMarkerInline [python3] []
+beginMacroMarkerInline [python3] [] []
+endMacroMarkerInline [python3] [] []
+endParagraph
+endDocument

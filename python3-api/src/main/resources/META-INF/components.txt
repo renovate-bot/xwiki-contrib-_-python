@@ -1,0 +1,2 @@
+org.xwiki.contrib.python.internal.DefaultPythonPaths
+org.xwiki.contrib.python.internal.ExtensionPythonPathListener
