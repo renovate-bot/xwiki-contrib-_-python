@@ -24,13 +24,5 @@
 // @Library("XWiki@<branch, tag, sha1>") _
 // See https://github.com/jenkinsci/workflow-cps-global-lib-plugin for details.
 
-// TODO: Uncomment to have this maven project be built by https://ci.xwiki.org and to have SonarQube validate it at
-// https://sonarcloud.io/organizations/xwiki/projects
-/*
 xwikiModule {
-  // Note: Java 11+ is required for Sonar/Sonarcloud
-  goals = 'clean deploy jacoco:report sonar:sonar'
-  profiles = 'quality,integration-tests,docker'
-  sonar = true
 }
-*/
