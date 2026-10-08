@@ -22,27 +22,37 @@ package org.xwiki.contrib.python;
 import java.util.Collection;
 
 import org.xwiki.component.annotation.Role;
+import org.xwiki.component.namespace.Namespace;
 
 /**
- * Expose generic Python related informations.
- * 
+ * The locations (directories or zip files like wheels) where Python packages and modules are searched.
+ * <p>
+ * Each path is associated with a namespace, the same way extensions are installed in a namespace: a path registered
+ * for a wiki or a user is only visible from this wiki or by this user, while a path registered for the root namespace
+ * is visible from everywhere.
+ *
  * @version $Id$
  */
 @Role
 public interface PythonPaths
 {
     /**
-     * @return the paths to Python packages/files
+     * @return the paths available in the current context: the ones registered for the current user, then the current
+     *         wiki, then the root namespace (the first paths take precedence when looking for a Python module)
      */
     Collection<String> getPaths();
 
     /**
-     * @param path add a local path to Python packages/files
+     * @param namespace the namespace where the path is available (like a wiki or a user), {@link Namespace#ROOT}
+     *            for the root namespace (available everywhere)
+     * @param path the local path to add
      */
-    void addPath(String path);
+    void addPath(Namespace namespace, String path);
 
     /**
-     * @param path remove a path previous registered
+     * @param namespace the namespace for which the path was registered, {@link Namespace#ROOT} for the root
+     *            namespace
+     * @param path the path to remove
      */
-    void removePath(String path);
+    void removePath(Namespace namespace, String path);
 }

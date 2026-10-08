@@ -25,21 +25,19 @@
   <parent>
     <groupId>org.xwiki.contrib.python</groupId>
     <artifactId>python</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>python3-api</artifactId>
   <name>Python 3 API</name>
   <description>The base tools to manipulate Python 3 scripts and packages.</description>
   <properties>
     <xwiki.jacoco.instructionRatio>1.00</xwiki.jacoco.instructionRatio>
+    <!-- The extension handler of the Python packages is only looked up on the root namespace, and the Python paths
+         are shared by all the wikis -->
+    <xwiki.extension.namespaces>{root}</xwiki.extension.namespaces>
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>org.xwiki.commons</groupId>
-      <artifactId>xwiki-commons-observation-local</artifactId>
-      <version>${commons.version}</version>
-    </dependency>
     <dependency>
       <groupId>org.xwiki.commons</groupId>
       <artifactId>xwiki-commons-extension-api</artifactId>
@@ -47,8 +45,21 @@
     </dependency>
     <dependency>
       <groupId>org.xwiki.platform</groupId>
-      <artifactId>xwiki-platform-observation-remote</artifactId>
+      <artifactId>xwiki-platform-model-api</artifactId>
       <version>${platform.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.xwiki.platform</groupId>
+      <artifactId>xwiki-platform-bridge</artifactId>
+      <version>${platform.version}</version>
+    </dependency>
+
+    <!-- Testing dependencies -->
+    <dependency>
+      <groupId>org.xwiki.commons</groupId>
+      <artifactId>xwiki-commons-tool-test-component</artifactId>
+      <version>${commons.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

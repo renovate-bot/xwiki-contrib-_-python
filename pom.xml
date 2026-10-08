@@ -31,7 +31,7 @@
   <groupId>org.xwiki.contrib.python</groupId>
   <artifactId>python</artifactId>
   <name>Python support</name>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Various tools to manipulate Python script and packages.</description>
 
@@ -40,6 +40,10 @@
     <xwiki.issueManagement.jira.id>PYTHON</xwiki.issueManagement.jira.id>
 
     <polyglot.version>25.4.4.1.1</polyglot.version>
+    <!-- The version of the packaging library (https://pypi.org/project/packaging/) used to evaluate the Python
+         packaging standards, and the SHA-256 of its wheel (as listed on PyPI) -->
+    <python.packaging.version>26.2</python.packaging.version>
+    <python.packaging.sha256>5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e</python.packaging.sha256>
     <!-- GraalPy 5.3+ =only works on Java 21+ -->
     <xwiki.java.version>21</xwiki.java.version>
   </properties>
@@ -62,7 +66,11 @@
 
   <modules>
     <module>python3-api</module>
+    <module>python3-engine</module>
+    <module>python3-packaging</module>
     <module>python3-macro</module>
+    <module>python3-repository-pypi</module>
+    <module>python3-test</module>
   </modules>
 
   <build>

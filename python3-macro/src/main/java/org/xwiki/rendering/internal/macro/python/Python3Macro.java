@@ -20,6 +20,8 @@
 package org.xwiki.rendering.internal.macro.python;
 
 import java.io.File;
+import java.util.List;
+import java.util.Map;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -33,6 +35,7 @@ import org.graalvm.polyglot.Context.Builder;
 import org.graalvm.polyglot.Value;
 import org.xwiki.component.annotation.Component;
 import org.xwiki.contrib.python.PythonPaths;
+import org.xwiki.contrib.python.engine.Python3Engine;
 import org.xwiki.rendering.macro.descriptor.DefaultContentDescriptor;
 import org.xwiki.rendering.macro.script.ScriptMacroParameters;
 
@@ -59,6 +62,9 @@ public class Python3Macro extends AbstractPolyglotMacro<ScriptMacroParameters>
     @Inject
     private PythonPaths paths;
 
+    @Inject
+    private Python3Engine python3Engine;
+
     /**
      * Create and initialize the descriptor of the macro.
      */
@@ -68,34 +74,51 @@ public class Python3Macro extends AbstractPolyglotMacro<ScriptMacroParameters>
     }
 
     @Override
+    protected Builder createContextBuilder()
+    {
+        return this.python3Engine.createContextBuilder();
+    }
+
+    @Override
     protected String getScriptEngineName()
     {
         return "python";
     }
 
     @Override
-    protected void updateContext(Builder builder)
+    protected Object getContextConfiguration()
     {
-        super.updateContext(builder);
-
-        // Set the registered paths
-        builder.option("python.PythonPath", StringUtils.join(this.paths.getPaths(), File.pathSeparator));
+        // The Python paths depend on the current wiki and user
+        return List.copyOf(this.paths.getPaths());
     }
 
     @Override
-    protected void uploadBindings(ScriptContext scriptContext, Context pContext)
+    protected void updateContext(Builder builder, Object configuration)
     {
-        super.uploadBindings(scriptContext, pContext);
+        super.updateContext(builder, configuration);
+
+        // Set the Python paths available in the current context
+        builder.option("python.PythonPath", StringUtils.join((List<?>) configuration, File.pathSeparator));
+    }
+
+    @Override
+    protected void uploadBindings(ScriptContext scriptContext, Context pContext, Map<String, Object> downloaded)
+    {
+        super.uploadBindings(scriptContext, pContext, downloaded);
 
         // Also inject global Python variables to mimic the behavior of JSR223-based macros (in the Polyglot world
-        // you are supposed to use special APi to export/import bindings)
+        // you are supposed to use special APi to export/import bindings). The variables coming from the script context
+        // and not modified by the script are not injected back, since the script context entries they come from can
+        // be modified or removed later (by Velocity for example), which an injected copy would not follow.
         Value globals = pContext.eval(getScriptEngineName(), "globals()");
         Value keys = globals.getHashKeysIterator();
         while (keys.hasIteratorNextElement()) {
             String name = keys.getIteratorNextElement().asString();
             if (!name.startsWith("__")) {
                 Value value = globals.getHashValue(name);
-                scriptContext.setAttribute(name, value.as(Object.class), ScriptContext.GLOBAL_SCOPE);
+                if (!isDownloaded(downloaded, name, value)) {
+                    scriptContext.setAttribute(name, value.as(Object.class), ScriptContext.GLOBAL_SCOPE);
+                }
             }
         }
     }

@@ -1,0 +1,23 @@
+.runTransformations
+.#-----------------------------------------------------
+.input|xwiki/2.0
+.# Verify that the packages registered in the Python paths can be imported
+.#-----------------------------------------------------
+{{python3}}
+import xwikitest
+print(xwikitest.hello("package"))
+{{/python3}}
+.#-----------------------------------------------------
+.expect|event/1.0
+.#-----------------------------------------------------
+beginDocument
+beginMacroMarkerStandalone [python3] [] [import xwikitest
+print(xwikitest.hello("package"))]
+beginParagraph
+onWord [Hello]
+onSpace
+onWord [package]
+endParagraph
+endMacroMarkerStandalone [python3] [] [import xwikitest
+print(xwikitest.hello("package"))]
+endDocument

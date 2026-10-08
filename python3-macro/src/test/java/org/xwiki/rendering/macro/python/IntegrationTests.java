@@ -20,11 +20,17 @@
 package org.xwiki.rendering.macro.python;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.script.ScriptContext;
 import javax.script.SimpleScriptContext;
 
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xwiki.component.namespace.Namespace;
+import org.xwiki.contrib.python.PythonPaths;
 import org.xwiki.environment.Environment;
 import org.xwiki.environment.internal.StandardEnvironment;
 import org.xwiki.rendering.macro.script.JUnit5ScriptMockSetup;
@@ -68,5 +74,15 @@ public class IntegrationTests extends RenderingTest
         // outside the maven build directory (bad practice)
         StandardEnvironment environment = componentManager.getInstance(Environment.class);
         environment.setPermanentDirectory(this.permanentDir);
+
+        // Register a package the same way an installed wheel extension is (the local extension repository stores
+        // wheels with a ".wheel" file extension)
+        File wheel = new File(this.permanentDir, "xwikitest-1.0.wheel");
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(wheel))) {
+            zip.putNextEntry(new ZipEntry("xwikitest/__init__.py"));
+            zip.write("def hello(name):\n    return 'Hello ' + name\n".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        componentManager.<PythonPaths>getInstance(PythonPaths.class).addPath(Namespace.ROOT, wheel.getAbsolutePath());
     }
 }

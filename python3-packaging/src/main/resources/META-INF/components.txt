@@ -1,0 +1,1 @@
+org.xwiki.contrib.python.packaging.internal.DefaultPythonPackaging

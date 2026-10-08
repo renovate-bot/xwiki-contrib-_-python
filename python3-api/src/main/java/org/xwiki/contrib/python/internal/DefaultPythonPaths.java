@@ -21,13 +21,26 @@ package org.xwiki.contrib.python.internal;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
+import org.xwiki.bridge.DocumentAccessBridge;
 import org.xwiki.component.annotation.Component;
+import org.xwiki.component.namespace.Namespace;
 import org.xwiki.contrib.python.PythonPaths;
+import org.xwiki.model.EntityType;
+import org.xwiki.model.ModelContext;
+import org.xwiki.model.namespace.UserNamespace;
+import org.xwiki.model.namespace.WikiNamespace;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.EntityReference;
+import org.xwiki.model.reference.EntityReferenceSerializer;
 
 /**
  * Default implementation of {@link PythonPaths}.
@@ -38,25 +51,62 @@ import org.xwiki.contrib.python.PythonPaths;
 @Singleton
 public class DefaultPythonPaths implements PythonPaths
 {
-    private final Set<String> writePythonPaths = ConcurrentHashMap.newKeySet();
+    @Inject
+    private ModelContext modelContext;
 
-    private final Set<String> readPythonPaths = Collections.unmodifiableSet(this.writePythonPaths);
+    @Inject
+    private DocumentAccessBridge documentAccessBridge;
+
+    @Inject
+    private EntityReferenceSerializer<String> referenceSerializer;
+
+    /**
+     * The paths indexed by namespace, in the order they were added.
+     */
+    private final Map<Namespace, Set<String>> paths = new ConcurrentHashMap<>();
 
     @Override
     public Collection<String> getPaths()
     {
-        return this.readPythonPaths;
+        Set<String> result = new LinkedHashSet<>();
+
+        DocumentReference userReference = this.documentAccessBridge.getCurrentUserReference();
+        if (userReference != null) {
+            addPaths(new UserNamespace(this.referenceSerializer.serialize(userReference)), result);
+        }
+
+        EntityReference currentReference = this.modelContext.getCurrentEntityReference();
+        EntityReference wikiReference =
+            currentReference != null ? currentReference.extractReference(EntityType.WIKI) : null;
+        if (wikiReference != null) {
+            addPaths(new WikiNamespace(wikiReference.getName()), result);
+        }
+
+        addPaths(Namespace.ROOT, result);
+
+        return Collections.unmodifiableSet(result);
+    }
+
+    private void addPaths(Namespace namespace, Set<String> result)
+    {
+        Set<String> namespacePaths = this.paths.get(namespace);
+        if (namespacePaths != null) {
+            result.addAll(namespacePaths);
+        }
     }
 
     @Override
-    public void addPath(String path)
+    public void addPath(Namespace namespace, String path)
     {
-        this.writePythonPaths.add(path);
+        this.paths.computeIfAbsent(namespace, key -> new CopyOnWriteArraySet<>()).add(path);
     }
 
     @Override
-    public void removePath(String path)
+    public void removePath(Namespace namespace, String path)
     {
-        this.writePythonPaths.remove(path);
+        Set<String> namespacePaths = this.paths.get(namespace);
+        if (namespacePaths != null) {
+            namespacePaths.remove(path);
+        }
     }
 }

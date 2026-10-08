@@ -1,0 +1,8 @@
+org.xwiki.contrib.python.repository.pypi.internal.ExtensionPostInstallmentConfigListener
+org.xwiki.contrib.python.repository.pypi.internal.PypiConfiguration
+org.xwiki.contrib.python.repository.pypi.internal.PypiExtensionFactory
+org.xwiki.contrib.python.repository.pypi.internal.PypiExtensionRepository
+org.xwiki.contrib.python.repository.pypi.internal.PypiSimpleApiClient
+org.xwiki.contrib.python.repository.pypi.internal.PypiVersionSelector
+org.xwiki.contrib.python.repository.pypi.internal.searching.PypiPackageIndexManager
+org.xwiki.contrib.python.repository.pypi.internal.utils.PypiHttpClient

@@ -24,8 +24,12 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.lang.ref.Cleaner;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import javax.inject.Inject;
 import javax.script.Bindings;
@@ -36,11 +40,8 @@ import org.apache.commons.io.output.ProxyOutputStream;
 import org.apache.commons.io.output.WriterOutputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.Value;
 import org.xwiki.component.descriptor.ComponentDescriptor;
-import org.xwiki.component.phase.Initializable;
-import org.xwiki.component.phase.InitializationException;
 import org.xwiki.context.ExecutionContext;
 import org.xwiki.properties.ConverterManager;
 import org.xwiki.rendering.block.Block;
@@ -62,9 +63,14 @@ import org.xwiki.script.ScriptContextManager;
 // TODO Move to a dedicated Polyglot extension
 @SuppressWarnings("checkstyle:ClassFanOutComplexity")
 public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> extends AbstractScriptMacro<P>
-    implements Initializable
 {
     private static final String POLYGLOT_CONTEXT = "polyglot.context";
+
+    /**
+     * Close the polyglot contexts once the execution context holding them is not used anymore, since the execution
+     * context does not provide any way to be notified when it's disposed.
+     */
+    private static final Cleaner CLEANER = Cleaner.create();
 
     private record PolyglotContext(Context context, ProxyOutputStream out)
     {
@@ -82,9 +88,6 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
     @Inject
     private ComponentDescriptor<Macro> descriptor;
 
-    private Context.Builder builder;
-
-    private final Engine engine = Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
 
     /**
      * @param macroName the name of the macro (eg "groovy")
@@ -136,14 +139,6 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
         super(macroName, macroDescription, contentDescriptor, parametersBeanClass);
     }
 
-    @Override
-    public void initialize() throws InitializationException
-    {
-        super.initialize();
-
-        this.builder = Context.newBuilder(getScriptEngineName()).engine(this.engine).allowAllAccess(true);
-    }
-
     /**
      * Method to overwrite to indicate the script engine name.
      * 
@@ -191,17 +186,52 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
         return this.scriptContextManager.getScriptContext();
     }
 
-    private void downloadBindings(ScriptContext scriptContext, Value pBindings)
+    /**
+     * @return the downloaded bindings
+     */
+    private Map<String, Object> downloadBindings(ScriptContext scriptContext, Value pBindings)
     {
-        downloadBindings(scriptContext, ScriptContext.GLOBAL_SCOPE, pBindings);
-        downloadBindings(scriptContext, ScriptContext.ENGINE_SCOPE, pBindings);
+        Map<String, Object> downloaded = new HashMap<>();
+        downloadBindings(scriptContext, ScriptContext.GLOBAL_SCOPE, pBindings, downloaded);
+        downloadBindings(scriptContext, ScriptContext.ENGINE_SCOPE, pBindings, downloaded);
+
+        return downloaded;
     }
 
-    protected void downloadBindings(ScriptContext scriptContext, int scope, Value pBindings)
+    protected void downloadBindings(ScriptContext scriptContext, int scope, Value pBindings,
+        Map<String, Object> downloaded)
     {
         Bindings bindings = scriptContext.getBindings(scope);
         if (bindings != null) {
-            bindings.forEach(pBindings::putMember);
+            bindings.forEach((name, value) -> {
+                pBindings.putMember(name, value);
+                downloaded.put(name, value);
+            });
+        }
+    }
+
+    /**
+     * @param downloaded the bindings downloaded from the script context before executing the script
+     * @param name the name of the binding
+     * @param value the current value of the binding in the polyglot context
+     * @return true if the binding comes from the script context and was not modified by the script
+     */
+    protected static boolean isDownloaded(Map<String, Object> downloaded, String name, Value value)
+    {
+        return downloaded.containsKey(name) && Objects.equals(downloaded.get(name), value.as(Object.class));
+    }
+
+    /**
+     * Remove the bindings downloaded from the script context (and not modified by the script) from the polyglot
+     * context: the script context will change after the execution of the macro (some of its bindings can be removed
+     * for example), so they should not be kept, nor be seen as defined by the following scripts.
+     */
+    private void removeDownloadedBindings(Value pBindings, Map<String, Object> downloaded)
+    {
+        for (String name : downloaded.keySet()) {
+            if (pBindings.hasMember(name) && isDownloaded(downloaded, name, pBindings.getMember(name))) {
+                pBindings.removeMember(name);
+            }
         }
     }
 
@@ -211,7 +241,12 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
         scriptContext.setAttribute(key, value, ScriptContext.GLOBAL_SCOPE);
     }
 
-    protected void uploadBindings(ScriptContext scriptContext, Context pContext)
+    /**
+     * @param scriptContext the script context to update
+     * @param pContext the polyglot context
+     * @param downloaded the bindings downloaded from the script context before executing the script
+     */
+    protected void uploadBindings(ScriptContext scriptContext, Context pContext, Map<String, Object> downloaded)
     {
         // Generic Polyglot bindings (must be explicitly export through a polyglot API)
         Value pBindings = pContext.getPolyglotBindings();
@@ -224,31 +259,64 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
     private PolyglotContext getPolyglotContext()
     {
         ExecutionContext econtext = this.execution.getContext();
+        Object configuration = getContextConfiguration();
 
+        // Keep one polyglot context per configuration for the duration of the execution context, so that what a
+        // macro defines (classes, functions, imported modules) can be used by the following ones (the variables are
+        // shared through the script context). The configuration can depend on the current wiki or user, which can
+        // change during the execution.
+        Map<Object, PolyglotContext> contexts = null;
         if (econtext != null) {
-            PolyglotContext pcontext = (PolyglotContext) econtext.getProperty(POLYGLOT_CONTEXT);
+            contexts = (Map<Object, PolyglotContext>) econtext.getProperty(POLYGLOT_CONTEXT);
+            if (contexts == null) {
+                contexts = new HashMap<>();
+                econtext.setProperty(POLYGLOT_CONTEXT, contexts);
+            }
 
+            PolyglotContext pcontext = contexts.get(configuration);
             if (pcontext != null) {
                 return pcontext;
             }
         }
 
-        updateContext(this.builder);
-
+        // A new builder is needed for each context since the builder is not thread safe and holds the output stream
         ProxyOutputStream out = new ProxyOutputStream(null);
-        Context pcontext = this.builder.out(out).build();
+        Context.Builder builder = createContextBuilder().out(out);
+        updateContext(builder, configuration);
+        Context pcontext = builder.build();
         PolyglotContext context = new PolyglotContext(pcontext, out);
+        // The cleaning action must not reference the PolyglotContext instance, or it would never become unreachable
+        CLEANER.register(context, pcontext::close);
 
-        if (econtext != null) {
-            econtext.setProperty(POLYGLOT_CONTEXT, context);
+        if (contexts != null) {
+            contexts.put(configuration, context);
         }
 
         return context;
     }
 
-    protected void updateContext(Context.Builder builder)
-    {
+    /**
+     * @return the builder of a new polyglot context (with all access allowed, like for the other script macros)
+     */
+    protected abstract Context.Builder createContextBuilder();
 
+    /**
+     * @return the configuration of the polyglot context to use in the current context (a new polyglot context is
+     *         created when it changes), {@code null} by default
+     */
+    protected Object getContextConfiguration()
+    {
+        return null;
+    }
+
+    /**
+     * @param builder the builder of the polyglot context to customize
+     * @param configuration the configuration of the polyglot context, as returned by
+     *            {@link #getContextConfiguration()}
+     */
+    protected void updateContext(Context.Builder builder, Object configuration)
+    {
+        // Nothing to customize by default
     }
 
     /**
@@ -281,13 +349,18 @@ public abstract class AbstractPolyglotMacro<P extends ScriptMacroParameters> ext
 
             pContext.out().setReference(out);
 
-            downloadBindings(scriptContext, pContext.context.getBindings(engineName));
+            Value pBindings = pContext.context.getBindings(engineName);
+            Map<String, Object> downloaded = downloadBindings(scriptContext, pBindings);
 
-            Value value = pContext.context.eval(engineName, content);
+            try {
+                Value value = pContext.context.eval(engineName, content);
 
-            uploadBindings(scriptContext, pContext.context);
+                uploadBindings(scriptContext, pContext.context, downloaded);
 
-            result = convertScriptExecution(value, stringWriter, parameters, context);
+                result = convertScriptExecution(value, stringWriter, parameters, context);
+            } finally {
+                removeDownloadedBindings(pBindings, downloaded);
+            }
         } finally {
             // restore current writer
             scriptContext.setWriter(currentWriter);
