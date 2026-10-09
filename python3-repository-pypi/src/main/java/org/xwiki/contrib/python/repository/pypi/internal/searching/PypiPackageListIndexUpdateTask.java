@@ -134,7 +134,7 @@ public class PypiPackageListIndexUpdateTask extends TimerTask
             return this.httpClient.openStream(new URI(PypiParameters.PACKAGE_LIST_SIMPLE_API),
                 PypiParameters.SIMPLE_API_JSON_MEDIA_TYPE);
         } catch (IOException | URISyntaxException e) {
-            logger.error("Failed to get list of python packages from PyPi", e);
+            logger.error("Failed to get list of Python packages from PyPI", e);
         }
 
         return null;

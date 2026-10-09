@@ -33,7 +33,7 @@
   <properties>
     <xwiki.extension.name>Python 3 PyPI Repository</xwiki.extension.name>
     <xwiki.extension.category>repository</xwiki.extension.category>
-    <xwiki.jacoco.instructionRatio>0.84</xwiki.jacoco.instructionRatio>
+    <xwiki.jacoco.instructionRatio>0.85</xwiki.jacoco.instructionRatio>
   </properties>
   <dependencies>
     <dependency>

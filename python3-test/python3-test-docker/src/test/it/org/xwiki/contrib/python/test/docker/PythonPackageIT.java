@@ -34,7 +34,6 @@ import org.xwiki.contrib.python.test.po.PythonExtensionAdministrationPage;
 import org.xwiki.extension.ExtensionId;
 import org.xwiki.extension.test.ExtensionTestUtils;
 import org.xwiki.extension.test.po.ExtensionPane;
-import org.xwiki.extension.test.po.SimpleSearchPane;
 import org.xwiki.model.namespace.WikiNamespace;
 import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.SpaceReference;
@@ -81,6 +80,11 @@ class PythonPackageIT
      * The maximum number of seconds to wait for the installation of a package (and its dependencies).
      */
     private static final int INSTALL_TIMEOUT = 300;
+
+    /**
+     * The maximum number of seconds to wait for a search in the repositories, which resolves each result on PyPI.
+     */
+    private static final int SEARCH_TIMEOUT = 120;
 
     private static final String PYGMENTS = "pygments";
 
@@ -201,11 +205,8 @@ class PythonPackageIT
         assertEquals(RICH_NOT_INSTALLED + "\n" + PYGMENTS_NOT_INSTALLED, getScriptPageContent(setup, testReference));
 
         // Search directly in the repositories (not in the index)
-        PythonExtensionAdministrationPage adminPage = PythonExtensionAdministrationPage.gotoPage();
-        SimpleSearchPane searchBar = adminPage.getSearchBar();
-        searchBar.setRecommended(false);
-        searchBar.setIndexed(false);
-        ExtensionPane extension = searchBar.search(PYGMENTS).getExtension(0);
+        ExtensionPane extension = PythonExtensionAdministrationPage.gotoPage()
+            .searchInRepositories(PYGMENTS, SEARCH_TIMEOUT).getExtension(0);
 
         // The package matching exactly the search comes first, in its latest version
         assertEquals("Pygments", extension.getName());

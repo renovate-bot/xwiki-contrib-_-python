@@ -23,6 +23,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +71,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -140,6 +142,10 @@ public class PypiExtensionRepositoryTest
 
         private String metadataHash;
 
+        private String wheelHash;
+
+        private boolean hasWheelHash = true;
+
         Release requiresPython(String value)
         {
             this.requiresPython = value;
@@ -188,6 +194,18 @@ public class PypiExtensionRepositoryTest
             this.metadataHash = value;
             return this;
         }
+
+        Release wheelHash(String value)
+        {
+            this.wheelHash = value;
+            return this;
+        }
+
+        Release noWheelHash()
+        {
+            this.hasWheelHash = false;
+            return this;
+        }
     }
 
     private void putResponse(String uri, String body)
@@ -228,7 +246,14 @@ public class PypiExtensionRepositoryTest
         } else {
             file.put("core-metadata", Boolean.FALSE);
         }
-        this.responses.put(url, createWheel(name, version, metadataBytes));
+        byte[] wheel = createWheel(name, version, metadataBytes);
+        this.responses.put(url, wheel);
+        if (release.hasWheelHash) {
+            file.put("hashes", Map.of("sha256", release.wheelHash != null ? release.wheelHash
+                : HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(wheel))));
+        } else {
+            file.put("hashes", Map.of());
+        }
 
         this.projectVersions.computeIfAbsent(normalizedName, key -> new LinkedHashSet<>()).add(version);
         this.projectFiles.computeIfAbsent(normalizedName, key -> new ArrayList<>()).add(file);
@@ -593,6 +618,32 @@ public class PypiExtensionRepositoryTest
         putRelease("pkg", "1.0", new Release().metadataHash("0000"));
 
         this.mocker.getComponentUnderTest().resolve(new ExtensionId("pkg", "1.0"));
+    }
+
+    @Test
+    public void downloadWheelWithInvalidHash() throws Exception
+    {
+        putRelease("pkg", "1.0", new Release().wheelHash("0000"));
+
+        Extension extension = this.mocker.getComponentUnderTest().resolve(new ExtensionId("pkg", "1.0"));
+
+        try (InputStream stream = extension.getFile().openStream()) {
+            IOException exception = assertThrows(IOException.class, stream::readAllBytes);
+            assertTrue(exception.getMessage().startsWith("Unexpected SHA-256 hash"));
+        }
+    }
+
+    @Test
+    public void downloadWheelWithoutHash() throws Exception
+    {
+        putRelease("pkg", "1.0", new Release().noWheelHash());
+
+        Extension extension = this.mocker.getComponentUnderTest().resolve(new ExtensionId("pkg", "1.0"));
+
+        try (InputStream stream = extension.getFile().openStream()) {
+            assertEquals(this.responses.get(FILES_URL + "pkg-1.0-py3-none-any.whl").length,
+                stream.readAllBytes().length);
+        }
     }
 
     @Test

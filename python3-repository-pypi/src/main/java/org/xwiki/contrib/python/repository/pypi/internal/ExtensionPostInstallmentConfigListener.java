@@ -29,6 +29,7 @@ import javax.inject.Singleton;
 
 import org.slf4j.Logger;
 import org.xwiki.component.annotation.Component;
+import org.xwiki.component.phase.Disposable;
 import org.xwiki.component.phase.Initializable;
 import org.xwiki.extension.repository.DefaultExtensionRepositoryDescriptor;
 import org.xwiki.extension.repository.ExtensionRepository;
@@ -38,16 +39,22 @@ import org.xwiki.observation.AbstractEventListener;
 import org.xwiki.observation.event.Event;
 
 /**
- * This listener is only for execution configuration logic on installment.
- * It's a bit of workaround. Every listener is initialized by Observation Manager after registering it.
+ * Register the PyPI repository when the extension is installed (or when XWiki starts), and unregister it when the
+ * extension is uninstalled. It's a listener only because the listeners are initialized as soon as they are
+ * registered.
  *
  * @version $Id$
  */
 @Component
 @Named("PypiRepositoryExtensionPostInstallmentConfigListener")
 @Singleton
-public class ExtensionPostInstallmentConfigListener extends AbstractEventListener implements Initializable
+public class ExtensionPostInstallmentConfigListener extends AbstractEventListener implements Initializable, Disposable
 {
+    /**
+     * The identifier of the PyPI repository.
+     */
+    public static final String REPOSITORY_ID = "pypi";
+
     @Inject
     private PypiExtensionRepository pypiRepository;
 
@@ -68,7 +75,6 @@ public class ExtensionPostInstallmentConfigListener extends AbstractEventListene
     @Override
     public void initialize()
     {
-        logger.info(getName() + " registered");
         addPypiRepository();
     }
 
@@ -76,7 +82,7 @@ public class ExtensionPostInstallmentConfigListener extends AbstractEventListene
     {
         ExtensionRepository extensionRepository = createPypiRepository();
         extensionRepositoryManager.addRepository(extensionRepository);
-        this.logger.info("Pypi repository registered successfully");
+        this.logger.info("PyPI repository registered successfully");
     }
 
     private ExtensionRepository createPypiRepository()
@@ -87,11 +93,18 @@ public class ExtensionPostInstallmentConfigListener extends AbstractEventListene
     private ExtensionRepositoryDescriptor obtainPypiRepositoryDescriptor()
     {
         try {
-            return new DefaultExtensionRepositoryDescriptor("PyPi", "pypi", new URI(PypiParameters.API_URL));
+            return new DefaultExtensionRepositoryDescriptor(REPOSITORY_ID, REPOSITORY_ID,
+                new URI(PypiParameters.API_URL));
         } catch (URISyntaxException e) {
             // Should never happen
             return null;
         }
+    }
+
+    @Override
+    public void dispose()
+    {
+        this.extensionRepositoryManager.removeRepository(REPOSITORY_ID);
     }
 
     @Override

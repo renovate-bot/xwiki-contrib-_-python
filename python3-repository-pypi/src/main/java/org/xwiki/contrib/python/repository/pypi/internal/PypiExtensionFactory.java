@@ -139,7 +139,7 @@ public class PypiExtensionFactory implements Initializable
 
         try {
             extension.setFile(new PypiExtensionFile(new URI(file.getUrl()),
-                file.getSize() != null ? file.getSize() : -1, this.httpClient));
+                file.getSize() != null ? file.getSize() : -1, file.getSha256(), this.httpClient));
         } catch (URISyntaxException e) {
             throw new ResolveException("Invalid URL [" + file.getUrl() + "] for package [" + name + "]", e);
         }

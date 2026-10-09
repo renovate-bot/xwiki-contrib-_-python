@@ -123,6 +123,29 @@ public class PythonExtensionAdministrationPage extends ExtensionAdministrationPa
     }
 
     /**
+     * Search directly in the repositories (not in the extension index), which can take a while since each result is
+     * resolved remotely.
+     *
+     * @param query the text to search
+     * @param timeout the maximum number of seconds to wait for the search results
+     * @return the search results
+     */
+    public SearchResultsPane searchInRepositories(String query, int timeout)
+    {
+        SimpleSearchPane searchBar = getSearchBar();
+        searchBar.setRecommended(false);
+        searchBar.setIndexed(false);
+
+        int previousTimeout = getDriver().getTimeout();
+        getDriver().setTimeout(timeout);
+        try {
+            return searchBar.search(query);
+        } finally {
+            getDriver().setTimeout(previousTimeout);
+        }
+    }
+
+    /**
      * @return the names of all the extensions found by the current search (on all the pages of results)
      */
     public List<String> getAllSearchResultNames()

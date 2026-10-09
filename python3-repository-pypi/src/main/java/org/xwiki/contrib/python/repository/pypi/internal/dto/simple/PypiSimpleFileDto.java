@@ -112,6 +112,14 @@ public class PypiSimpleFileDto
     }
 
     /**
+     * @return the SHA-256 hash of the file, {@code null} if unknown
+     */
+    public String getSha256()
+    {
+        return this.hashes != null ? this.hashes.get(SHA256) : null;
+    }
+
+    /**
      * @return the Python versions supported by the distribution, {@code null} if unknown
      */
     public String getRequiresPython()
