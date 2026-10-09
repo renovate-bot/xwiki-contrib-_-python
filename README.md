@@ -4,7 +4,7 @@ Various Python related tools for XWiki.
 
 * Project Lead: [Thomas Mortagne](https://www.xwiki.org/xwiki/bin/view/XWiki/ThomasMortagne)
 * Documentation & Downloads: [Documentation & Download](https://extensions.xwiki.org/xwiki/bin/view/Extension/Python)
-* [Issue Tracker](https://jira.xwiki.org/browse/PYTHON
+* [Issue Tracker](https://jira.xwiki.org/browse/PYTHON)
 * Communication: [Forum](https://forum.xwiki.org/), [Chat](https://dev.xwiki.org/xwiki/bin/view/Community/Chat)
 * [Development Practices](https://dev.xwiki.org)
 * Minimal XWiki version supported: 17.10.0 (with Java 21)
