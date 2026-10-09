@@ -31,6 +31,7 @@
   <name>Python 3 Macro</name>
   <description>Adds ability to execute Python 3 scripts in wiki pages</description>
   <properties>
+    <xwiki.extension.category>macro</xwiki.extension.category>
     <xwiki.jacoco.instructionRatio>0.74</xwiki.jacoco.instructionRatio>
   </properties>
   <dependencies>
