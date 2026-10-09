@@ -84,7 +84,7 @@ class PythonPackageIT
     /**
      * The maximum number of seconds to wait for a search in the repositories, which resolves each result on PyPI.
      */
-    private static final int SEARCH_TIMEOUT = 120;
+    private static final int SEARCH_TIMEOUT = 30;
 
     private static final String PYGMENTS = "pygments";
 

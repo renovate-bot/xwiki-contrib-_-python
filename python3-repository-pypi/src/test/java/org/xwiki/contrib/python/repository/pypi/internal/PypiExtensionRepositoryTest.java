@@ -70,6 +70,7 @@ import org.xwiki.test.mockito.MockitoComponentMockingRule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -120,6 +121,11 @@ public class PypiExtensionRepositoryTest
      * The files listed by the project page of each package.
      */
     private final Map<String, List<Map<String, Object>>> projectFiles = new HashMap<>();
+
+    /**
+     * The JSON API page of each package, describing its last published release.
+     */
+    private final Map<String, Map<String, Object>> jsonPages = new HashMap<>();
 
     private File testDirectory;
 
@@ -258,6 +264,41 @@ public class PypiExtensionRepositoryTest
         this.projectVersions.computeIfAbsent(normalizedName, key -> new LinkedHashSet<>()).add(version);
         this.projectFiles.computeIfAbsent(normalizedName, key -> new ArrayList<>()).add(file);
         updateProjectPage(normalizedName);
+
+        if (!release.yanked) {
+            putJsonPage(name, version, release, filename);
+        }
+    }
+
+    private void putJsonPage(String name, String version, Release release, String filename) throws Exception
+    {
+        String normalizedName = PythonPackages.normalizeName(name);
+
+        Map<String, Object> page = this.jsonPages.get(normalizedName);
+        if (page == null || !version.equals(((Map<?, ?>) page.get("info")).get("version"))) {
+            Map<String, Object> info = new HashMap<>();
+            info.put("name", name);
+            info.put("version", version);
+            info.put("summary", "Summary of " + name);
+            info.put("license_expression", "MIT");
+            info.put("project_urls", Map.of("Homepage", "https://example.com/" + normalizedName));
+            info.put("requires_python", release.requiresPython);
+
+            page = new LinkedHashMap<>();
+            page.put("info", info);
+            // The (deprecated) list of all the releases is not used
+            page.put("releases", Map.of(version, List.of(Map.of("filename", filename))));
+            page.put("urls", new ArrayList<>());
+            this.jsonPages.put(normalizedName, page);
+        }
+        ((List<Object>) page.get("urls")).add(Map.of("filename", filename, "yanked", false));
+
+        putResponse(getJsonPageURL(normalizedName), new ObjectMapper().writeValueAsString(page));
+    }
+
+    private static String getJsonPageURL(String normalizedName)
+    {
+        return "https://pypi.org/pypi/" + normalizedName + "/json";
     }
 
     private void putPackage(String name, String version, String requiresPython, List<String> requiresDist,
@@ -324,6 +365,7 @@ public class PypiExtensionRepositoryTest
         this.mocker.registerComponent(DefaultPython3Engine.class);
         this.mocker.registerComponent(DefaultPythonPackaging.class);
         this.mocker.registerComponent(PypiSimpleApiClient.class);
+        this.mocker.registerComponent(PypiJsonApiClient.class);
         this.mocker.registerComponent(PypiExtensionFactory.class);
         this.mocker.registerComponent(PypiVersionSelector.class);
         this.mocker.registerComponent(PypiPackageIndexManager.class);
@@ -501,7 +543,7 @@ public class PypiExtensionRepositoryTest
 
         putRelease("pkg-a", "1.0", new Release());
         putRelease("pkg-b", "2.0", new Release().nativeWheel());
-        putRelease("pkg-c", "3.0", new Release());
+        putRelease("pkg-c", "3.0", new Release().requiresDist("pkg-a"));
 
         IterableResult<Extension> result = repository.search("pkg", 0, 10);
 
@@ -515,6 +557,50 @@ public class PypiExtensionRepositoryTest
         // The package without compatible distribution is listed, but can't be installed
         assertNull(extensions.get(1).getFile());
         assertEquals("https://pypi.org/project/pkg-b/", extensions.get(1).getWebSite());
+        // The installable packages are listed from the description of their latest release, and are fully resolved
+        // (file and dependencies) only when installed
+        Extension extension = extensions.get(2);
+        assertEquals("pkg-c", extension.getName());
+        assertEquals("Summary of pkg-c", extension.getSummary());
+        assertEquals("https://example.com/pkg-c", extension.getWebSite());
+        assertEquals("MIT", extension.getLicenses().iterator().next().getName());
+        assertEquals(PythonPackages.TYPE_WHEEL, extension.getType());
+        assertNull(extension.getFile());
+        assertTrue(extension.getDependencies().isEmpty());
+        // Only the package which can't be installed in its latest release is resolved
+        assertEquals(Arrays.asList("https://pypi.org/simple/pkg-b/"), getRequestedProjectPages());
+    }
+
+    @Test
+    public void searchWhenLatestReleaseDoesNotSupportPython() throws Exception
+    {
+        PypiExtensionRepository repository = this.mocker.getComponentUnderTest();
+
+        putRelease("decorator", "1.0", new Release());
+        putRelease("decorator", "2.0", new Release().requiresPython(">=4"));
+
+        IterableResult<Extension> result = repository.search("decorator", 0, 1);
+
+        // The best version supporting the Python runtime is found
+        Extension extension = result.iterator().next();
+        assertEquals(new ExtensionId("decorator", "1.0"), extension.getId());
+        assertNotNull(extension.getFile());
+    }
+
+    @Test
+    public void searchWhenJsonApiIsNotAvailable() throws Exception
+    {
+        PypiExtensionRepository repository = this.mocker.getComponentUnderTest();
+
+        putRelease("decorator", "1.0", new Release());
+        this.responses.remove(getJsonPageURL("decorator"));
+
+        IterableResult<Extension> result = repository.search("decorator", 0, 1);
+
+        // The package is resolved from the Simple API instead
+        Extension extension = result.iterator().next();
+        assertEquals(new ExtensionId("decorator", "1.0"), extension.getId());
+        assertNotNull(extension.getFile());
     }
 
     @Test

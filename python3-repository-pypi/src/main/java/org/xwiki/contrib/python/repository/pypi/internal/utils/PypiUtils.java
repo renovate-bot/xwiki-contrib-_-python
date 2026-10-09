@@ -19,7 +19,10 @@
  */
 package org.xwiki.contrib.python.repository.pypi.internal.utils;
 
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.xwiki.contrib.python.PythonPackages;
@@ -29,10 +32,16 @@ import org.xwiki.extension.ResolveException;
 import org.xwiki.extension.version.Version;
 
 /**
+ * Helpers to manipulate the Python packages provided by PyPI.
+ *
  * @version $Id$
  */
 public final class PypiUtils
 {
+    private static final String WHEEL_EXTENSION = ".whl";
+
+    private static final Pattern PYTHON3_TAG = Pattern.compile("py3\\d*");
+
     private PypiUtils()
     {
     }
@@ -77,6 +86,36 @@ public final class PypiUtils
         } else {
             return Optional.of(version);
         }
+    }
+
+    /**
+     * A quick check of the wheel tags (PEP 427) which does not involve the Python packaging tools, good enough to list
+     * the packages found by a search: the installation selects the wheels with the exact tags supported by the Python
+     * runtime.
+     *
+     * @param filename the name of a distribution file
+     * @return true if the file is a wheel without native code, for Python 3
+     */
+    public static boolean isPureWheel(String filename)
+    {
+        if (!StringUtils.endsWith(filename, WHEEL_EXTENSION)) {
+            return false;
+        }
+
+        // {distribution}-{version}(-{build tag})?-{python tag}-{abi tag}-{platform tag}.whl
+        String[] parts = StringUtils.removeEnd(filename, WHEEL_EXTENSION).split("-");
+        if (parts.length < 5) {
+            return false;
+        }
+
+        return hasTag(parts[parts.length - 1], "any"::equals) && hasTag(parts[parts.length - 2], "none"::equals)
+            && hasTag(parts[parts.length - 3], tag -> PYTHON3_TAG.matcher(tag).matches());
+    }
+
+    private static boolean hasTag(String compressedTags, Predicate<String> predicate)
+    {
+        // Several tags can be combined with dots (like py2.py3)
+        return Arrays.stream(compressedTags.split("\\.")).anyMatch(predicate);
     }
 
     /**

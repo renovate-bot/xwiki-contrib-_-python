@@ -150,7 +150,8 @@ public class PypiPackageIndexManager implements Initializable, Disposable
 
         PypiPackageSearcher searcher = this.packageIndex.getSearcher();
         if (searcher != null) {
-            return searcher.search(query, offset, hitsPerPage);
+            // Put the most downloaded packages first, like the PyPI search
+            return searcher.search(query, offset, hitsPerPage, this.popularPackages.getRanks());
         }
 
         return new CollectionIterableResult<>(0, 0, Collections.emptyList());

@@ -52,6 +52,11 @@ public interface PypiParameters
     String PACKAGE_SIMPLE_API = API_URL + PACKAGE_NAME_VARIABLE + PATH_SEPARATOR;
 
     /**
+     * The JSON API page of a package, describing its latest release.
+     */
+    String PACKAGE_JSON_API = "https://pypi.org/pypi/" + PACKAGE_NAME_VARIABLE + "/json";
+
+    /**
      * The page of a project on PyPI.
      */
     String PROJECT_PAGE = "https://pypi.org/project/" + PACKAGE_NAME_VARIABLE + PATH_SEPARATOR;

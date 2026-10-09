@@ -19,6 +19,7 @@
  */
 package org.xwiki.contrib.python.repository.pypi.internal.utils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,6 +28,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +79,18 @@ class PypiHttpClientTest
             exchange.getResponseHeaders().add("Location", "/ok");
             send(exchange, 301, "");
         });
+        this.server.createContext("/gzip", exchange -> {
+            this.requestHeaders.put("Accept-Encoding", exchange.getRequestHeaders().getFirst("Accept-Encoding"));
+            ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(compressed)) {
+                gzip.write("compressed content".getBytes(StandardCharsets.UTF_8));
+            }
+            exchange.getResponseHeaders().add("Content-Encoding", "gzip");
+            exchange.sendResponseHeaders(200, compressed.size());
+            try (OutputStream stream = exchange.getResponseBody()) {
+                compressed.writeTo(stream);
+            }
+        });
         this.server.createContext("/error", exchange -> send(exchange, 500, "error"));
         this.server.start();
     }
@@ -111,6 +125,16 @@ class PypiHttpClientTest
 
         assertEquals("application/json", this.requestHeaders.get("Accept"));
         assertEquals("XWikiTest", this.requestHeaders.get("User-Agent"));
+    }
+
+    @Test
+    void openStreamWithCompressedContent() throws IOException
+    {
+        try (InputStream stream = this.httpClient.openStream(uri("/gzip"), null)) {
+            assertEquals("compressed content", new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+
+        assertEquals("gzip", this.requestHeaders.get("Accept-Encoding"));
     }
 
     @Test

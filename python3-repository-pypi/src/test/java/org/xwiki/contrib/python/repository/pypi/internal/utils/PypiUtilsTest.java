@@ -26,6 +26,7 @@ import org.xwiki.extension.ExtensionId;
 import org.xwiki.extension.ExtensionNotFoundException;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -54,6 +55,20 @@ public class PypiUtilsTest
         assertEquals(Optional.of("1.0"), PypiUtils.getVersion(new ExtensionId("pkg", "1.0")));
         assertEquals(Optional.empty(), PypiUtils.getVersion(new ExtensionId("pkg", "")));
         assertEquals(Optional.empty(), PypiUtils.getVersion(new ExtensionId("pkg")));
+    }
+
+    @Test
+    public void isPureWheel()
+    {
+        assertTrue(PypiUtils.isPureWheel("pygments-2.21.0-py3-none-any.whl"));
+        assertTrue(PypiUtils.isPureWheel("six-1.17.0-py2.py3-none-any.whl"));
+        assertTrue(PypiUtils.isPureWheel("pkg-1.0-1-py312-none-any.whl"));
+        assertFalse(PypiUtils.isPureWheel("pkg-1.0-py2-none-any.whl"));
+        assertFalse(PypiUtils.isPureWheel("pkg-1.0-cp312-cp312-manylinux_2_17_x86_64.whl"));
+        assertFalse(PypiUtils.isPureWheel("pkg-1.0-py3-abi3-any.whl"));
+        assertFalse(PypiUtils.isPureWheel("pkg-1.0.tar.gz"));
+        assertFalse(PypiUtils.isPureWheel("pkg-py3-none-any.whl"));
+        assertFalse(PypiUtils.isPureWheel(null));
     }
 
     @Test

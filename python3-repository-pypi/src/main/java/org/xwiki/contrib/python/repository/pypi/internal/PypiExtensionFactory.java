@@ -36,6 +36,7 @@ import org.xwiki.contrib.python.packaging.PythonMetadata;
 import org.xwiki.contrib.python.packaging.PythonPackaging;
 import org.xwiki.contrib.python.packaging.PythonPackagingException;
 import org.xwiki.contrib.python.packaging.PythonRequirement;
+import org.xwiki.contrib.python.repository.pypi.internal.dto.json.PypiJsonProjectDto;
 import org.xwiki.contrib.python.repository.pypi.internal.dto.simple.PypiSimpleFileDto;
 import org.xwiki.contrib.python.repository.pypi.internal.dto.simple.PypiSimpleProjectDto;
 import org.xwiki.contrib.python.repository.pypi.internal.utils.PypiHttpClient;
@@ -96,6 +97,31 @@ public class PypiExtensionFactory implements Initializable
         return this.pythonAPIVersionConstraint;
     }
 
+    private static String getProjectPage(String name)
+    {
+        return PypiParameters.PROJECT_PAGE.replace(PypiParameters.PACKAGE_NAME_VARIABLE, name);
+    }
+
+    /**
+     * Create the extension of a package found by a search, from the description of its latest release. It's enough to
+     * list the package: the extension is fully resolved (file and dependencies) when it's installed.
+     *
+     * @param repository the repository providing the extension
+     * @param project the JSON API page of the package
+     * @return the extension
+     */
+    public PypiExtension createSearchExtension(ExtensionRepository repository, PypiJsonProjectDto project)
+    {
+        PythonMetadata metadata = project.getInfo().toMetadata();
+        String name = PythonPackages.normalizeName(metadata.getName());
+
+        PypiExtension extension = new PypiExtension(repository, new ExtensionId(name, metadata.getVersion()));
+        extension.setMetadata(metadata, getProjectPage(name), this.licenseManager);
+        extension.addRepository(repository.getDescriptor());
+
+        return extension;
+    }
+
     /**
      * Create the extension of a package which cannot be installed (no wheel compatible with the Python runtime) so
      * that it can still be listed (the extension index will indicate it's not compatible).
@@ -112,7 +138,7 @@ public class PypiExtensionFactory implements Initializable
 
         PypiExtension extension = new PypiExtension(repository, new ExtensionId(name, version));
         extension.setName(project.getName());
-        extension.setWebsite(PypiParameters.PROJECT_PAGE.replace(PypiParameters.PACKAGE_NAME_VARIABLE, name));
+        extension.setWebsite(getProjectPage(name));
         extension.addRepository(repository.getDescriptor());
 
         return extension;
@@ -133,8 +159,7 @@ public class PypiExtensionFactory implements Initializable
         String name = PythonPackages.normalizeName(project.getName());
 
         PypiExtension extension = new PypiExtension(repository, new ExtensionId(name, version));
-        extension.setMetadata(metadata, PypiParameters.PROJECT_PAGE.replace(PypiParameters.PACKAGE_NAME_VARIABLE, name),
-            this.licenseManager);
+        extension.setMetadata(metadata, getProjectPage(name), this.licenseManager);
         extension.addRepository(repository.getDescriptor());
 
         try {

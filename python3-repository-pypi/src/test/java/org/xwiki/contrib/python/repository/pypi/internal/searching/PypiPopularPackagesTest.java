@@ -25,6 +25,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,6 +93,7 @@ class PypiPopularPackagesTest
         this.popularPackages.update(IOUtils.toInputStream(JSON, UTF_8));
 
         assertEquals(Arrays.asList("typing-extensions", "requests"), this.popularPackages.getNames());
+        assertEquals(Map.of("typing-extensions", 0, "requests", 1), this.popularPackages.getRanks());
 
         // The list is kept for the next restart
         PypiPopularPackages restarted = new PypiPopularPackages(this.file, this.logger);

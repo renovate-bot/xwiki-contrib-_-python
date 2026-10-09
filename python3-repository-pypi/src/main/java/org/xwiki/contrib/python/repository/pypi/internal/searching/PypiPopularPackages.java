@@ -29,7 +29,9 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.xwiki.contrib.python.PythonPackages;
@@ -59,6 +61,8 @@ public class PypiPopularPackages
 
     private volatile List<String> names = Collections.emptyList();
 
+    private volatile Map<String, Integer> ranks = Collections.emptyMap();
+
     /**
      * @param file the file where the last downloaded list is stored
      * @param logger the logger used to report the errors
@@ -76,7 +80,7 @@ public class PypiPopularPackages
     {
         if (this.file.exists()) {
             try (InputStream stream = Files.newInputStream(this.file.toPath())) {
-                this.names = readNames(stream);
+                setNames(readNames(stream));
 
                 return;
             } catch (IOException e) {
@@ -86,7 +90,7 @@ public class PypiPopularPackages
         }
 
         try (InputStream stream = getClass().getResourceAsStream(EMBEDDED_LIST)) {
-            this.names = readNames(stream);
+            setNames(readNames(stream));
         } catch (IOException e) {
             this.logger.error("Failed to read the embedded list of the most downloaded PyPI packages", e);
         }
@@ -105,12 +109,32 @@ public class PypiPopularPackages
         return Collections.unmodifiableList(result);
     }
 
+    private void setNames(List<String> newNames)
+    {
+        Map<String, Integer> newRanks = new HashMap<>(newNames.size() * 2);
+        for (int i = newNames.size() - 1; i >= 0; --i) {
+            newRanks.put(newNames.get(i), i);
+        }
+
+        this.names = newNames;
+        this.ranks = Collections.unmodifiableMap(newRanks);
+    }
+
     /**
      * @return the (normalized) names of the most downloaded packages, from the most to the least downloaded
      */
     public List<String> getNames()
     {
         return this.names;
+    }
+
+    /**
+     * @return the position of each of the most downloaded packages (indexed by normalized name), starting with 0 for
+     *         the most downloaded one
+     */
+    public Map<String, Integer> getRanks()
+    {
+        return this.ranks;
     }
 
     /**
@@ -133,7 +157,7 @@ public class PypiPopularPackages
         Files.move(temporaryFile.toPath(), this.file.toPath(), StandardCopyOption.REPLACE_EXISTING,
             StandardCopyOption.ATOMIC_MOVE);
 
-        this.names = Collections.unmodifiableList(newNames);
+        setNames(Collections.unmodifiableList(newNames));
     }
 
     /**

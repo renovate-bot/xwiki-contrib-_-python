@@ -28,6 +28,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.zip.GZIPInputStream;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -49,6 +50,8 @@ public class PypiHttpClient implements Initializable, Disposable
     private static final int HTTP_OK = 200;
 
     private static final int HTTP_NOT_FOUND = 404;
+
+    private static final String GZIP = "gzip";
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(60);
 
@@ -77,7 +80,10 @@ public class PypiHttpClient implements Initializable, Disposable
      */
     public InputStream openStream(URI uri, String accept) throws IOException
     {
-        HttpRequest.Builder request = HttpRequest.newBuilder(uri).timeout(RESPONSE_TIMEOUT).GET();
+        // The JSON documents provided by PyPI (like the Simple API index, which lists all the packages) are a lot
+        // smaller once compressed
+        HttpRequest.Builder request =
+            HttpRequest.newBuilder(uri).timeout(RESPONSE_TIMEOUT).header("Accept-Encoding", GZIP).GET();
         String userAgent = this.configuration.getUserAgent();
         if (userAgent != null) {
             request.header("User-Agent", userAgent);
@@ -96,7 +102,8 @@ public class PypiHttpClient implements Initializable, Disposable
         }
 
         if (response.statusCode() == HTTP_OK) {
-            return response.body();
+            return response.headers().firstValue("Content-Encoding").filter(GZIP::equalsIgnoreCase).isPresent()
+                ? new GZIPInputStream(response.body()) : response.body();
         }
 
         // Release the connection

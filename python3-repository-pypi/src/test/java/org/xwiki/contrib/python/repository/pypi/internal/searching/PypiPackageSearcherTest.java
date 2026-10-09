@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -68,6 +69,24 @@ public class PypiPackageSearcherTest
     {
         assertEquals(Arrays.asList("Decorator", "decorator-tools", "py-decorator", "decorators"),
             search(" DECORATOR ", 0, -1, 4));
+    }
+
+    @Test
+    public void searchPutsRankedPackagesFirst() throws Exception
+    {
+        Map<String, Integer> ranks = Map.of("decorators", 0, "py-decorator", 1, "requests", 2);
+
+        IterableResult<String> result = this.searcher.search("decorator", 0, -1, ranks);
+        List<String> packageNames = new ArrayList<>();
+        result.forEach(packageNames::add);
+        assertEquals(Arrays.asList("Decorator", "decorators", "py-decorator", "decorator-tools"), packageNames);
+        assertEquals(4, result.getTotalHits());
+
+        // The ranked packages are all kept, whatever the size of the page
+        result = this.searcher.search("decorator", 1, 1, ranks);
+        assertEquals("decorators", result.iterator().next());
+        result = this.searcher.search("decorator", 3, 1, ranks);
+        assertEquals("decorator-tools", result.iterator().next());
     }
 
     @Test

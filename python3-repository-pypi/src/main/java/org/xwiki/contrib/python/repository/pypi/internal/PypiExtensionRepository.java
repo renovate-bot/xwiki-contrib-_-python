@@ -48,6 +48,8 @@ import org.xwiki.contrib.python.PythonPackages;
 import org.xwiki.contrib.python.packaging.PythonMetadata;
 import org.xwiki.contrib.python.packaging.PythonPackaging;
 import org.xwiki.contrib.python.packaging.PythonPackagingException;
+import org.xwiki.contrib.python.repository.pypi.internal.dto.json.PypiJsonInfoDto;
+import org.xwiki.contrib.python.repository.pypi.internal.dto.json.PypiJsonProjectDto;
 import org.xwiki.contrib.python.repository.pypi.internal.dto.simple.PypiSimpleFileDto;
 import org.xwiki.contrib.python.repository.pypi.internal.dto.simple.PypiSimpleProjectDto;
 import org.xwiki.contrib.python.repository.pypi.internal.searching.PypiPackageIndexManager;
@@ -90,13 +92,16 @@ public class PypiExtensionRepository extends AbstractExtensionRepository
     /**
      * The number of search results resolved in parallel.
      */
-    private static final int SEARCH_THREADS = 4;
+    private static final int SEARCH_THREADS = 8;
 
     @Inject
     private PythonPackaging pythonPackaging;
 
     @Inject
     private PypiSimpleApiClient simpleApiClient;
+
+    @Inject
+    private PypiJsonApiClient jsonApiClient;
 
     @Inject
     private PypiExtensionFactory extensionFactory;
@@ -195,7 +200,7 @@ public class PypiExtensionRepository extends AbstractExtensionRepository
 
             PypiSimpleFileDto file = files.get(entry.getValue());
             PythonMetadata metadata = this.simpleApiClient.getMetadata(file);
-            if (isPythonSupported(metadata)) {
+            if (isPythonSupported(metadata.getRequiresPython())) {
                 return this.extensionFactory.createExtension(this, project, entry.getKey(), file, metadata);
             }
 
@@ -230,11 +235,11 @@ public class PypiExtensionRepository extends AbstractExtensionRepository
         return wheels;
     }
 
-    private boolean isPythonSupported(PythonMetadata metadata)
+    private boolean isPythonSupported(String requiresPython)
     {
-        if (StringUtils.isNotBlank(metadata.getRequiresPython())) {
+        if (StringUtils.isNotBlank(requiresPython)) {
             try {
-                return this.pythonPackaging.isPythonSupported(metadata.getRequiresPython());
+                return this.pythonPackaging.isPythonSupported(requiresPython);
             } catch (PythonPackagingException e) {
                 // Don't block the installation because of an invalid metadata
             }
@@ -284,6 +289,39 @@ public class PypiExtensionRepository extends AbstractExtensionRepository
     }
 
     private Extension resolveSearchResult(String packageName) throws ResolveException
+    {
+        // Listing a package only requires the description of its latest release (a single request), the extension is
+        // fully resolved (file and dependencies) when it's installed
+        try {
+            PypiJsonProjectDto project = this.jsonApiClient.getProject(packageName);
+            if (isInstallable(project)) {
+                return this.extensionFactory.createSearchExtension(this, project);
+            }
+        } catch (ResolveException e) {
+            this.logger.debug("Failed to get the latest release of package [{}], resolving it", packageName, e);
+        }
+
+        // The latest release cannot be installed, look for the best version which can be
+        return resolveSearchResultVersion(packageName);
+    }
+
+    /**
+     * @return true if the latest release of the package provides a wheel without native code supporting the Python
+     *         runtime
+     */
+    private boolean isInstallable(PypiJsonProjectDto project)
+    {
+        PypiJsonInfoDto info = project.getInfo();
+        if (info == null || info.getName() == null || info.getVersion() == null || project.getUrls() == null) {
+            return false;
+        }
+
+        return project.getUrls().stream()
+            .anyMatch(file -> !file.isYanked() && PypiUtils.isPureWheel(file.getFilename()))
+            && isPythonSupported(info.getRequiresPython());
+    }
+
+    private Extension resolveSearchResultVersion(String packageName) throws ResolveException
     {
         try {
             return resolve(new ExtensionId(packageName));
