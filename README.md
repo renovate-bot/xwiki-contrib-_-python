@@ -26,3 +26,14 @@ The following properties can be set in `xwiki.properties`:
 
 * `pypi.popularPackages.count`: the number of most downloaded packages listed in the extension index (500 by default, 0 to list all the PyPI packages, which means resolving hundreds of thousands of packages).
 * `pypi.popularPackages.url`: the location of the list of the most downloaded packages, in the format of https://hugovk.dev/top-pypi-packages/ (the list published on GitHub by default).
+
+## Release
+
+* Release (the profiles are needed to also update the version of the test modules)
+
+```
+mvn release:prepare -Pintegration-tests,docker
+mvn release:perform -Pintegration-tests,docker
+```
+
+* Import the released version on https://extensions.xwiki.org/xwiki/bin/view/Extension/Python and update its release notes
