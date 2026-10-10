@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.xwiki.contrib.python</groupId>
     <artifactId>python3-test</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
   </parent>
   <artifactId>python3-test-pageobjects</artifactId>
   <name>Python 3 - Functional Tests - Page Objects</name>
@@ -42,4 +42,8 @@
       <version>${platform.version}</version>
     </dependency>
   </dependencies>
+
+  <scm>
+    <tag>python-1.0.0</tag>
+  </scm>
 </project>
