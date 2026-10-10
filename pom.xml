@@ -33,7 +33,7 @@
   <name>Python support</name>
   <version>1.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <description>Various tools to manipulate Python script and packages.</description>
+  <description>Various tools to manipulate Python scripts and packages.</description>
 
   <properties>
     <xwiki.release.jira.skip>false</xwiki.release.jira.skip>
