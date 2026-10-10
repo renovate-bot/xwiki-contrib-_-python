@@ -31,7 +31,7 @@
   <groupId>org.xwiki.contrib.python</groupId>
   <artifactId>python</artifactId>
   <name>Python support</name>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Various tools to manipulate Python script and packages.</description>
 
@@ -175,6 +175,6 @@
     <connection>scm:git:git://github.com/xwiki-contrib/python.git</connection>
     <developerConnection>scm:git:git@github.com:xwiki-contrib/python.git</developerConnection>
     <url>https://github.com/xwiki-contrib/python/tree/master</url>
-    <tag>python-1.0.0</tag>
+    <tag>HEAD</tag>
   </scm>
 </project>

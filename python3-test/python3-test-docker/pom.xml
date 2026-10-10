@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.xwiki.contrib.python</groupId>
     <artifactId>python3-test</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
   </parent>
   <artifactId>python3-test-docker</artifactId>
   <name>Python 3 - Functional Tests - Docker</name>
@@ -115,8 +115,4 @@
       </plugin>
     </plugins>
   </build>
-
-  <scm>
-    <tag>python-1.0.0</tag>
-  </scm>
 </project>

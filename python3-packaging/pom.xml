@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.xwiki.contrib.python</groupId>
     <artifactId>python</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
   </parent>
   <artifactId>python3-packaging</artifactId>
   <name>Python 3 Packaging</name>
