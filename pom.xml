@@ -39,7 +39,7 @@
     <xwiki.release.jira.skip>false</xwiki.release.jira.skip>
     <xwiki.issueManagement.jira.id>PYTHON</xwiki.issueManagement.jira.id>
 
-    <polyglot.version>25.5.5.0.3</polyglot.version>
+    <polyglot.version>25.6.5.1</polyglot.version>
     <!-- The version of the packaging library (https://pypi.org/project/packaging/) used to evaluate the Python
          packaging standards, and the SHA-256 of its wheel (as listed on PyPI) -->
     <python.packaging.version>26.2</python.packaging.version>
